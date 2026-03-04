@@ -1,3 +1,6 @@
+from typing import Protocol
+
+
 class Address:
     def __init__(self, street: str, city: str, state: str) -> None:
         self.street = street
@@ -11,6 +14,9 @@ class Student:
         self.age = age
         self.address = address
 
+    def items(self):
+        return self.__dict__.items()
+
 
 def get_city(student: Student) -> str | None:
     if student.address:
@@ -18,15 +24,33 @@ def get_city(student: Student) -> str | None:
     return None
 
 
-def get_oldest(students: list[Student]) -> Student | None:
-    if not students:
+class HasAge(Protocol):
+    age: int
+
+
+def get_oldest[T: HasAge](data: list[T]) -> T | None:
+    if not data:
         return None
-    return max(students, key=lambda student: student.age)
+    return max(data, key=lambda d: d.age)
 
 
-students = []
-# students.append(Student("Caleb Curry", 95, Address("hello", "this", "is a test")))
-# students.append(Student("Kale", 97, Address("hello", "this", "is a test")))
+class SupportsItems(Protocol):
+    def items(self) -> ...: ...
+
+
+def print_data[T: SupportsItems](data: T) -> T:
+    for key, value in data.items():
+        print(key, value)
+    return data
+
+
+students: list[Student] = []
+students.append(Student("Caleb Curry", 95, Address("hello", "this", "is a test")))
+students.append(Student("Kale", 97, Address("hello", "this", "is a test")))
+
+student = {"name": "Paul", "age": 30, "Address": None}
+print_data(student)
+print_data(students[0])
 
 # Call function then check return
 student = get_oldest(students)
