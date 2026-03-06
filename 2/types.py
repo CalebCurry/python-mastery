@@ -1,4 +1,5 @@
-from typing import Protocol
+from typing import Any, ItemsView, Protocol
+# from _collections_abc import dict_items
 
 
 class Address:
@@ -35,7 +36,8 @@ def get_oldest[T: HasAge](data: list[T]) -> T | None:
 
 
 class SupportsItems(Protocol):
-    def items(self) -> ...: ...
+    # def items(self) -> dict_items[str, Any]: ...
+    def items(self) -> ItemsView[str, Any]: ...
 
 
 def print_data[T: SupportsItems](data: T) -> T:
