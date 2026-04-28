@@ -36,5 +36,6 @@ data = {
 
 try:
     Package.model_validate(data)
+    # do whatever we want with the data
 except Exception as e:
     print(e)
