@@ -1,5 +1,7 @@
+import psycopg
 from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pgvector.psycopg import register_vector
 
 
 class Settings(BaseSettings):
@@ -12,3 +14,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def connect():
+    conn = psycopg.connect(settings.database_url)
+    register_vector(conn)
+    return conn
