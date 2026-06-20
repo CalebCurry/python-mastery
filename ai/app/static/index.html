@@ -67,10 +67,8 @@
             box-shadow: 2px 0 5px rgba(0,0,0,0.2);
         }
 
-        .chat-section {
-            padding: 20px;
-            border-bottom: 2px solid var(--border);
-            background: var(--sidebar-accent);
+        .chat-item {
+            font-weight: 600;
         }
 
         .chat-toggle {
@@ -184,6 +182,50 @@
             padding: 20px;
             overflow-y: auto;
             background: var(--bg-primary);
+            position: relative;
+        }
+
+        .example-questions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 40px;
+            justify-content: center;
+            align-items: center;
+            min-height: 100%;
+        }
+
+        .example-questions.hidden {
+            display: none;
+        }
+
+        .example-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            max-width: 280px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .example-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border-color: var(--accent);
+        }
+
+        .example-card h4 {
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .example-card p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.4;
         }
 
         .message {
@@ -201,6 +243,38 @@
             padding: 12px 16px;
             border-radius: 12px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .message-sources {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+
+        .source-link {
+            display: inline-block;
+            margin-right: 12px;
+            margin-bottom: 5px;
+            padding: 4px 10px;
+            background: var(--bg-tertiary);
+            border-radius: 15px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .source-link:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .token-usage {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            opacity: 0.7;
         }
 
         .message.user .message-bubble {
@@ -368,11 +442,13 @@
 </head>
 <body>
     <div class="sidebar">
-        <div class="chat-section">
-            <button class="chat-toggle" onclick="toggleChat()">Open Chat Assistant</button>
-        </div>
         <div class="lessons-section">
-            <h3 class="lessons-title">Available Lessons</h3>
+            <h3 class="lessons-title">Navigation</h3>
+            <div class="lesson-item chat-item" onclick="openChat()">
+                💬 Chat Assistant
+            </div>
+            <button class="chat-toggle" style="background: #e74c3c; width: calc(100% - 30px); margin: 10px 15px; padding: 8px;" onclick="clearChatHistory()">🗑️ Clear Chat</button>
+            <div style="margin: 0 0 10px 0; padding: 10px 0; border-bottom: 1px solid var(--border);"></div>
             <div id="lessonsList"></div>
         </div>
     </div>
@@ -392,7 +468,34 @@
             </div>
             <div class="lesson-content" id="lessonContent"></div>
             <div class="chat-container" id="chatContainer">
-                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="example-questions" id="exampleQuestions">
+                        <div class="example-card" onclick="askExample('What are the best practices for watering plants?')">
+                            <h4>🌱 Watering Basics</h4>
+                            <p>Learn the best practices for keeping your plants properly hydrated</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('How do I prepare soil for planting?')">
+                            <h4>🪴 Soil Preparation</h4>
+                            <p>Discover how to create the perfect foundation for your garden</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('What are common garden pests and how do I deal with them?')">
+                            <h4>🐛 Pest Control</h4>
+                            <p>Identify and manage common garden pests naturally</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('How do I start composting?')">
+                            <h4>♻️ Composting</h4>
+                            <p>Turn kitchen waste into garden gold with composting</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('What plants are best for container gardening?')">
+                            <h4>🏺 Container Gardens</h4>
+                            <p>Find out which plants thrive in pots and containers</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('How do I know which plants work in my climate?')">
+                            <h4>🌡️ Climate Zones</h4>
+                            <p>Choose the right plants for your specific region</p>
+                        </div>
+                    </div>
+                </div>
                 <div class="chat-input-container">
                     <input 
                         type="text" 
@@ -408,9 +511,15 @@
     </div>
 
     <script>
-        let currentView = 'welcome';
+        let currentView = 'chat';
         let currentLessonId = null;
         let isLoading = false;
+        let conversationHistory = [];
+        let totalTokenUsage = {
+            prompt: 0,
+            completion: 0,
+            total: 0
+        };
 
         async function loadLessons() {
             try {
@@ -433,10 +542,15 @@
         }
 
         async function loadLesson(lessonId, title) {
-            if (currentView === 'chat') {
-                toggleChat();
-            }
+            // Hide other content
+            const chatContainer = document.getElementById('chatContainer');
+            const lessonContent = document.getElementById('lessonContent');
+            const welcomeContent = document.getElementById('welcomeContent');
             
+            chatContainer.classList.remove('active');
+            welcomeContent.style.display = 'none';
+            
+            // Update active states
             document.querySelectorAll('.lesson-item').forEach(item => {
                 item.classList.remove('active');
             });
@@ -448,8 +562,8 @@
                 const data = await response.json();
                 
                 document.getElementById('contentTitle').textContent = title;
-                document.getElementById('welcomeContent').style.display = 'none';
-                document.getElementById('lessonContent').innerHTML = parseMarkdown(data.content);
+                // Parse with anchors for direct section linking
+                document.getElementById('lessonContent').innerHTML = parseMarkdown(data.content, true);
                 document.getElementById('lessonContent').classList.add('active');
                 
                 currentView = 'lesson';
@@ -459,14 +573,30 @@
             }
         }
 
-        function parseMarkdown(markdown) {
+        function parseMarkdown(markdown, addAnchors = false) {
             let html = markdown;
             
             html = html.replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>');
             
-            html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-            html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-            html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+            // Add anchors to headers if requested
+            if (addAnchors) {
+                html = html.replace(/^### (.*$)/gim, (match, p1) => {
+                    const id = p1.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    return `<h3 id="${id}">${p1}</h3>`;
+                });
+                html = html.replace(/^## (.*$)/gim, (match, p1) => {
+                    const id = p1.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    return `<h2 id="${id}">${p1}</h2>`;
+                });
+                html = html.replace(/^# (.*$)/gim, (match, p1) => {
+                    const id = p1.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    return `<h1 id="${id}">${p1}</h1>`;
+                });
+            } else {
+                html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+                html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+                html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+            }
             
             html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
             html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
@@ -493,46 +623,126 @@
             return html;
         }
 
-        function toggleChat() {
-            const chatToggle = document.querySelector('.chat-toggle');
+        function openChat() {
             const chatContainer = document.getElementById('chatContainer');
             const lessonContent = document.getElementById('lessonContent');
             const welcomeContent = document.getElementById('welcomeContent');
             
-            if (currentView === 'chat') {
-                chatToggle.textContent = 'Open Chat Assistant';
-                chatToggle.classList.remove('active');
-                chatContainer.classList.remove('active');
-                
-                if (currentLessonId) {
-                    lessonContent.classList.add('active');
-                    currentView = 'lesson';
-                } else {
-                    welcomeContent.style.display = 'block';
-                    currentView = 'welcome';
-                }
-                
-                document.getElementById('contentTitle').textContent = currentLessonId ? 
-                    document.querySelector(`[data-lesson-id="${currentLessonId}"]`).textContent : 
-                    'Welcome to Python Mastery';
-            } else {
-                chatToggle.textContent = 'Close Chat';
-                chatToggle.classList.add('active');
-                chatContainer.classList.add('active');
-                lessonContent.classList.remove('active');
-                welcomeContent.style.display = 'none';
-                
-                document.querySelectorAll('.lesson-item').forEach(item => {
-                    item.classList.remove('active');
+            // Hide other content
+            lessonContent.classList.remove('active');
+            welcomeContent.style.display = 'none';
+            chatContainer.classList.add('active');
+            
+            // Update active states
+            document.querySelectorAll('.lesson-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector('.chat-item').classList.add('active');
+            
+            // Update title with token usage
+            updateChatHeader();
+            currentView = 'chat';
+            currentLessonId = null;
+            
+            // Load conversation history from localStorage
+            const savedHistory = localStorage.getItem('chatHistory');
+            if (savedHistory && conversationHistory.length === 0) {
+                conversationHistory = JSON.parse(savedHistory);
+                // Hide example questions if we have history
+                document.getElementById('exampleQuestions').classList.add('hidden');
+                // Restore visual messages from history
+                const chatMessages = document.getElementById('chatMessages');
+                const exampleQuestions = document.getElementById('exampleQuestions');
+                conversationHistory.forEach(msg => {
+                    addMessage(msg.content, msg.role);
                 });
+            }
+            
+            setTimeout(() => {
+                const messages = document.getElementById('chatMessages');
+                messages.scrollTop = messages.scrollHeight;
+            }, 100);
+        }
+
+        function askExample(question) {
+            document.getElementById('chatInput').value = question;
+            sendMessage();
+        }
+
+        async function openLessonFromSource(lessonName, sectionName) {
+            // Extract lesson ID from lesson name (e.g., "lesson-01" -> "01")
+            const lessonId = lessonName.replace('lesson-', '');
+            
+            // Find the lesson item
+            const lessonItem = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+            
+            if (lessonItem) {
+                // Get the title from the lesson item
+                const title = lessonItem.textContent;
                 
-                document.getElementById('contentTitle').textContent = 'Chat Assistant';
-                currentView = 'chat';
-                
-                setTimeout(() => {
-                    const messages = document.getElementById('chatMessages');
-                    messages.scrollTop = messages.scrollHeight;
-                }, 100);
+                // Load the lesson
+                try {
+                    const response = await fetch(`/api/lessons/${lessonId}`);
+                    const data = await response.json();
+                    
+                    // Hide chat and show lesson
+                    document.getElementById('chatContainer').classList.remove('active');
+                    document.getElementById('welcomeContent').style.display = 'none';
+                    
+                    // Update content
+                    document.getElementById('contentTitle').textContent = title;
+                    document.getElementById('lessonContent').innerHTML = parseMarkdown(data.content, true);
+                    document.getElementById('lessonContent').classList.add('active');
+                    
+                    // Update active states
+                    document.querySelectorAll('.lesson-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    lessonItem.classList.add('active');
+                    
+                    currentView = 'lesson';
+                    currentLessonId = lessonId;
+                    
+                    // Scroll to the section after a brief delay
+                    setTimeout(() => {
+                        // Create anchor from section name
+                        const anchorId = sectionName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                        const element = document.getElementById(anchorId);
+                        
+                        if (element) {
+                            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            // Highlight the section briefly
+                            element.style.transition = 'all 0.3s';
+                            element.style.background = 'var(--accent)';
+                            element.style.color = 'white';
+                            element.style.padding = '5px 10px';
+                            element.style.borderRadius = '5px';
+                            setTimeout(() => {
+                                element.style.background = '';
+                                element.style.color = '';
+                                element.style.padding = '';
+                                element.style.borderRadius = '';
+                            }, 2000);
+                        } else {
+                            console.log('Section not found:', anchorId);
+                        }
+                    }, 300);
+                } catch (error) {
+                    console.error('Error loading lesson:', error);
+                }
+            } else {
+                console.log('Lesson not found:', lessonId);
+            }
+        }
+
+        function updateChatHeader() {
+            const title = document.getElementById('contentTitle');
+            if (currentView === 'chat') {
+                if (totalTokenUsage.total > 0) {
+                    title.innerHTML = `Chat Assistant <span style="font-size: 14px; color: var(--text-secondary); margin-left: 20px;">🔼 ${totalTokenUsage.prompt.toLocaleString()} → ${totalTokenUsage.completion.toLocaleString()} tokens</span>`;
+                } else {
+                    title.textContent = 'Chat Assistant';
+                }
             }
         }
 
@@ -543,14 +753,39 @@
             
             if (!message || isLoading) return;
             
+            // Hide example questions when starting a conversation
+            if (conversationHistory.length === 0) {
+                document.getElementById('exampleQuestions').classList.add('hidden');
+            }
+            
             isLoading = true;
             sendButton.disabled = true;
             
             addMessage(message, 'user');
             input.value = '';
             
+            // Add user message to conversation history
+            conversationHistory.push({ role: 'user', content: message });
+            
+            // Build context string from conversation history
+            let contextString = conversationHistory.map(msg => 
+                `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+            ).join('\n\n');
+            
+            // Limit context to last 10 exchanges (20 messages) to avoid token limits
+            if (conversationHistory.length > 20) {
+                conversationHistory = conversationHistory.slice(-20);
+                contextString = conversationHistory.map(msg => 
+                    `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+                ).join('\n\n');
+            }
+            
             const loadingId = Date.now();
             addMessage('<div class="loading">Thinking</div>', 'assistant', loadingId);
+            
+            // Debug: log what we're sending
+            console.log('Sending conversation context:', contextString);
+            console.log('History length:', conversationHistory.length);
             
             try {
                 const response = await fetch('/chat', {
@@ -558,17 +793,47 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ question: message })
+                    body: JSON.stringify({ 
+                        question: contextString
+                    })
                 });
                 
                 const data = await response.json();
                 
                 removeMessage(loadingId);
-                addMessage(data.content, 'assistant');
+                
+                // Handle new response format with sources and token usage
+                let messageContent = data.content || data;
+                let sources = data.sources || [];
+                let tokenUsage = data.token_usage || {};
+                
+                // If data is just a string (old format), handle it
+                if (typeof data === 'string') {
+                    messageContent = data;
+                }
+                
+                // Update total token usage
+                if (tokenUsage.prompt_tokens) {
+                    totalTokenUsage.prompt += tokenUsage.prompt_tokens;
+                    totalTokenUsage.completion += tokenUsage.completion_tokens || 0;
+                    totalTokenUsage.total += tokenUsage.total_tokens || 0;
+                    updateChatHeader();
+                }
+                
+                addMessageWithSources(messageContent, 'assistant', sources, tokenUsage);
+                
+                // Add assistant response to conversation history
+                conversationHistory.push({ role: 'assistant', content: messageContent });
+                
+                // Save conversation to localStorage
+                localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
+                
             } catch (error) {
                 console.error('Error sending message:', error);
                 removeMessage(loadingId);
-                addMessage('Sorry, there was an error processing your request.', 'assistant');
+                const errorMsg = 'Sorry, there was an error processing your request.';
+                addMessage(errorMsg, 'assistant');
+                conversationHistory.push({ role: 'assistant', content: errorMsg });
             } finally {
                 isLoading = false;
                 sendButton.disabled = false;
@@ -584,7 +849,65 @@
             
             const bubble = document.createElement('div');
             bubble.className = 'message-bubble';
-            bubble.innerHTML = content;
+            
+            // Parse markdown for assistant messages (but not for loading messages)
+            if (sender === 'assistant' && !content.includes('class="loading"')) {
+                bubble.innerHTML = parseMarkdown(content);
+            } else {
+                bubble.innerHTML = content;
+            }
+            
+            messageDiv.appendChild(bubble);
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function addMessageWithSources(content, sender, sources, tokenUsage) {
+            const messages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            bubble.innerHTML = parseMarkdown(content);
+            
+            // Add sources if available
+            if (sources && sources.length > 0) {
+                const sourcesDiv = document.createElement('div');
+                sourcesDiv.className = 'message-sources';
+                
+                const sourceLabel = document.createElement('div');
+                sourceLabel.style.fontSize = '12px';
+                sourceLabel.style.marginBottom = '5px';
+                sourceLabel.style.color = 'var(--text-secondary)';
+                sourceLabel.innerHTML = '📖 Sources:';
+                sourcesDiv.appendChild(sourceLabel);
+                
+                sources.forEach(source => {
+                    const link = document.createElement('a');
+                    link.className = 'source-link';
+                    link.innerHTML = `🌱 ${source.section}`;
+                    // Create proper href for the link
+                    const lessonId = source.lesson.replace('lesson-', '');
+                    const anchorId = source.section.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    link.href = `#${lessonId}/${anchorId}`;
+                    link.onclick = (e) => {
+                        e.preventDefault();
+                        openLessonFromSource(source.lesson, source.section);
+                    };
+                    sourcesDiv.appendChild(link);
+                });
+                
+                bubble.appendChild(sourcesDiv);
+            }
+            
+            // Add token usage if available
+            if (tokenUsage && tokenUsage.total_tokens) {
+                const usageDiv = document.createElement('div');
+                usageDiv.className = 'token-usage';
+                usageDiv.innerHTML = `🤖 Tokens: ${tokenUsage.prompt_tokens || 0} → ${tokenUsage.completion_tokens || 0} (Total: ${tokenUsage.total_tokens})`;
+                bubble.appendChild(usageDiv);
+            }
             
             messageDiv.appendChild(bubble);
             messages.appendChild(messageDiv);
@@ -621,6 +944,49 @@
             }
         }
 
+        function clearChatHistory() {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                conversationHistory = [];
+                localStorage.removeItem('chatHistory');
+                
+                // Reset token usage
+                totalTokenUsage = { prompt: 0, completion: 0, total: 0 };
+                updateChatHeader();
+                
+                const chatMessages = document.getElementById('chatMessages');
+                
+                // Clear messages and recreate example questions
+                chatMessages.innerHTML = `
+                    <div class="example-questions" id="exampleQuestions">
+                        <div class="example-card" onclick="askExample('What are the best practices for watering plants?')">
+                            <h4>🌱 Watering Basics</h4>
+                            <p>Learn the best practices for keeping your plants properly hydrated</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('How do I prepare soil for planting?')">
+                            <h4>🪴 Soil Preparation</h4>
+                            <p>Discover how to create the perfect foundation for your garden</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('What are common garden pests and how do I deal with them?')">
+                            <h4>🐛 Pest Control</h4>
+                            <p>Identify and manage common garden pests naturally</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('How do I start composting?')">
+                            <h4>♻️ Composting</h4>
+                            <p>Turn kitchen waste into garden gold with composting</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('What plants are best for container gardening?')">
+                            <h4>🏺 Container Gardens</h4>
+                            <p>Find out which plants thrive in pots and containers</p>
+                        </div>
+                        <div class="example-card" onclick="askExample('How do I know which plants work in my climate?')">
+                            <h4>🌡️ Climate Zones</h4>
+                            <p>Choose the right plants for your specific region</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'light') {
@@ -630,6 +996,9 @@
             }
             
             loadLessons();
+            
+            // Default to chat view on load
+            openChat();
         });
     </script>
 </body>

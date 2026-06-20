@@ -47,4 +47,5 @@ class ChatRequest(BaseModel):
 @app.post("/chat")
 def chat(req: ChatRequest):
     response = answer(req.question)
-    return {"content": response}
+    # Response is now a dict with content, sources, and token_usage
+    return response
