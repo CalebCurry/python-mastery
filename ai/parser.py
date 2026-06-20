@@ -1,7 +1,10 @@
 from pathlib import Path
 
+from init import connect
 from unstructured.partition.md import partition_md
 from unstructured.chunking.title import chunk_by_title
+
+from embedder import embed
 
 
 def parse_and_chunk(filepath):
@@ -13,6 +16,13 @@ def parse_and_chunk(filepath):
 
     return chunks
 
+
+# clear the db to reembed
+conn = connect()
+with conn.cursor() as cursor:
+    cursor.execute("TRUNCATE embeddings")
+    conn.commit()
+    conn.close()
 
 for file in sorted((Path(__file__).parent / "lessons").glob("*.md")):
     chunks = parse_and_chunk(file)
@@ -30,5 +40,15 @@ for file in sorted((Path(__file__).parent / "lessons").glob("*.md")):
             current_title = titles[0]
         else:
             title = current_title
+
+        vector = embed([chunk.text])[0]
+        conn = connect()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO embeddings (embedding, section, lesson, content) VALUES (%s, %s, %s, %s)",
+                (vector, title, chunk.metadata.filename, chunk.text),
+            )
+            conn.commit()
+            conn.close()
         print(f"{chunk.metadata.filename} -> {title}")
         print(chunk.text[:30])

@@ -51,18 +51,6 @@ phrases = [
 #     conn.close()
 
 
-# insert one
-# content = "The plant needs watered twice a day"
-# vector = embed([content])[0]
-# conn = connect()
-# with conn.cursor() as cursor:
-#     cursor.execute(
-#         "INSERT INTO embeddings (embedding, section, lesson, content) VALUES (%s, %s, %s, %s)",
-#         (vector, "test section", "test lesson", content),
-#     )
-#     conn.commit()
-#     conn.close()
-
 search = "The plant needs watered twice a day"
 
 vector = embed([search])[0]
