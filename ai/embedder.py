@@ -1,6 +1,5 @@
-from init import connect, settings
+from ai.init import settings
 from openai import OpenAI
-import psycopg
 
 embedder = OpenAI(base_url=str(settings.embedder_base_url), api_key="example")
 
@@ -49,25 +48,3 @@ phrases = [
 #         )
 #     conn.commit()
 #     conn.close()
-
-
-search = "The plant needs watered twice a day"
-
-vector = embed([search])[0]
-conn = connect()
-with conn.cursor() as cursor:
-    cursor.execute(
-        """
-        SELECT content, section, lesson, embedding <=> %s::vector as distance 
-        FROM embeddings
-        ORDER BY embedding <=> %s::vector 
-        LIMIT 10
-        """,
-        (vector, vector),
-    )
-
-    result = cursor.fetchall()
-    conn.close()
-
-    for r in result:
-        print(r)
